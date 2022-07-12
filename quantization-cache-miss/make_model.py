@@ -17,8 +17,8 @@ trt_ts_module = torch_tensorrt.compile(torch_script_module,
     enabled_precisions = {torch.half}, # Run with FP16
 )
 
-torch.jit.save(torch_script_module, "pytorch.pt")
-torch.jit.save(trt_ts_module, "tensorrt.ts") # save the TRT embedded Torchscript
+torch.jit.save(torch_script_module, "./model/pytorch.pt")
+torch.jit.save(trt_ts_module, "./model/tensorrt.ts") # save the TRT embedded Torchscript
 
 net.eval()
 net.qconfig = torch.quantization.get_default_qconfig("fbgemm")
@@ -28,7 +28,7 @@ net = torch.quantization.prepare_qat(net)
 net = net.cpu().eval()
 net = torch.quantization.convert(net)
 
-torch.jit.save(net, "quantization_non_fuse.pt")
+torch.jit.save(net, "./model/quantization_non_fuse.pt")
 
 net = mobilenet_v2(pretrained=True).cuda().eval()
 net.eval()
@@ -39,4 +39,4 @@ net = torch.quantization.prepare_qat(net)
 net = net.cpu().eval()
 net = torch.quantization.convert(net)
 
-torch.jit.save(net, "quantization_fuse.pt")
+torch.jit.save(net, "./model/quantization_fuse.pt")

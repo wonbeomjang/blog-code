@@ -2,7 +2,7 @@ import time
 
 import torch
 
-net = torch.jit.load("quantization_fuse.pt")
+net = torch.jit.load("./model/quantization_fuse.pt")
 image = torch.ones([1, 3, 224, 224])
 
 for i in range(1000):
