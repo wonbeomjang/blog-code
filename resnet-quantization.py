@@ -9,6 +9,7 @@ from torch.quantization import fuse_modules
 from torchvision.datasets.mnist import MNIST
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms import transforms
+from torch.nn.quantized import FloatFunctional
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -32,7 +33,8 @@ class BottleNeck(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         y = self.layer1(x)
         y = self.layer2(y)
-        return self.conv1x1(x) + y
+        x = self.conv1x1(x)
+        return x + y
 
 
 class ResNet18(nn.Module):
@@ -77,10 +79,17 @@ class ResNet18(nn.Module):
 class QuantizableBottleNeck(BottleNeck):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3):
         super(QuantizableBottleNeck, self).__init__(in_channels, out_channels, kernel_size)
+        self.float_functional = FloatFunctional()
 
     def fuse_model(self) -> None:
         fuse_modules(self.layer1, ["0", "1", "2"], inplace=True)
         fuse_modules(self.layer2, ["0", "1", "2"], inplace=True)
+
+    def forward(self, x: Tensor) -> Tensor:
+        y = self.layer1(x)
+        y = self.layer2(y)
+        x = self.conv1x1(x)
+        return self.float_functional.add(x, y)
 
 
 class QuantizableResNet18(ResNet18):
@@ -128,6 +137,8 @@ def test(net, data_loader):
     model_size = os.path.getsize("tmp.pth") / 1e6
     os.remove("tmp.pth")
     for images, target in tqdm.tqdm(data_loader):
+        images = images.to(device)
+        target = target.to(device)
         cur = time.time()
         preds = net(images)
         total_time += time.time() - cur
@@ -147,18 +158,19 @@ if __name__ == "__main__":
 
     train_loader = DataLoader(
         dataset=MNIST("./dataset", True, transforms.Compose([transforms.Resize(224), transforms.ToTensor()]), download=True),
-        batch_size=32
+        batch_size=64
     )
     test_loader = DataLoader(
         dataset=MNIST("./dataset", False, transforms.Compose([transforms.Resize(224), transforms.ToTensor()]), download=True),
         batch_size=1
     )
-    net = ResNet18(10).to(device)
-    for i in range(30):
-        train(net, train_loader)
-    test(net, test_loader)
+    resnet = ResNet18(10).to(device)
+    for i in range(10):
+        train(resnet, train_loader)
+    test(resnet, test_loader)
 
-    net = QuantizableResNet18(10).load_state_dict(net.state_dict())
+    net = QuantizableResNet18(10)
+    net.load_state_dict(resnet.state_dict())
     net.eval()
     net.qconfig = torch.quantization.get_default_qconfig("fbgemm")
     net.fuse_model()
