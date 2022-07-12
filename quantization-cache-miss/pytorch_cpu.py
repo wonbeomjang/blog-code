@@ -1,5 +1,6 @@
 from torchvision.models.quantization.mobilenetv2 import mobilenet_v2
 import torch
+import os
 
 net = mobilenet_v2(pretrained=True).eval()
 net.eval()
@@ -14,3 +15,8 @@ image = torch.ones([1, 3, 224, 224])
 
 for i in range(5000):
     net(image)
+
+torch.save(net.state_dict(), "tmp.pth")
+model_size = os.path.getsize("tmp.pth") / 1e6
+os.remove("tmp.pth")
+print(model_size)
