@@ -16,7 +16,7 @@ image = torch.ones([1, 3, 224, 224])
 for i in range(5000):
     quantization(image)
 
-torch.save(net.state_dict(), "tmp.pth")
+torch.save(quantization.state_dict(), "tmp.pth")
 model_size = os.path.getsize("tmp.pth") / 1e6
 os.remove("tmp.pth")
 print(model_size)
